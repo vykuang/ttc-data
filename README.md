@@ -14,6 +14,11 @@
 - transformation: polars
 - viz: streamlit
 - storage: parquet and S3
+    - backend for raw API content as well as cleaned layers
+- IaC: Terraform
+    - S3
+    - lambda
+    - ECR
 
 ## API primer
 
@@ -118,7 +123,7 @@ The `stop_arrival_fact` schema:
 - arrival_delay_seconds
 - dwell_time_seconds
 
-From GTFS dataset, these dimensions are provided
+From [GTFS TTC routes and schedules dataset](https://open.toronto.ca/dataset/merged-gtfs-ttc-routes-and-schedules/), these dimensions are provided
 
 - routes
 - stops

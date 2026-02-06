@@ -11,3 +11,10 @@ wheels/
 
 # notebook
 *.ipynb
+
+# terraform
+.terraform
+*.tfstate
+
+# linter
+.ruff_cache

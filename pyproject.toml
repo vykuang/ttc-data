@@ -3,14 +3,16 @@ name = "ttc-data"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     "gtfs-realtime-bindings>=2.0.0",
     "polars>=1.37.1",
+    "pyzmq>=27.1.0",
     "requests>=2.32.5",
 ]
 
 [dependency-groups]
 dev = [
-    "ipykernel>=7.1.0",
+    "marimo>=0.19.8",
+    "ruff>=0.15.0",
 ]
