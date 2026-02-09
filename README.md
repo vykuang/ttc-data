@@ -2,7 +2,7 @@
 
 ## Objective
 
-- Showcase the Toronto open data catalogue 
+- Showcase the Toronto open data catalogue
 - Improve access to the public data
 - Practicing new and old tools (polars, duckdb, airflow)
 
@@ -65,7 +65,7 @@ entity {
 ```
 
 - Each trip taken by a vehicle is its own entity, with a unique `trip_id`
-- Each route may simultaneously have multiple trips 
+- Each route may simultaneously have multiple trips
 - `vehicle_id` to be cross-ref'd with `vehicles/position` endpoint
 
 ### Vehicle position API
@@ -129,3 +129,9 @@ From [GTFS TTC routes and schedules dataset](https://open.toronto.ca/dataset/mer
 - stops
 - trips - not sure what it pertains to, contains duplicates with same `trip_id`
 - shapes
+
+## Airflow
+
+- [`DockerOperator`](https://airflow.apache.org/docs/apache-airflow-providers-docker/stable/_api/airflow/providers/docker/operators/docker/index.html) only
+- the docker containers being orchestrated will contain all dependencies/credential needed
+- testing is more cumbersome

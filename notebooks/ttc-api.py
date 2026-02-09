@@ -213,7 +213,6 @@ def _(feed, headers, requests, urls):
         print(trip)
         if j > 3:
             break
-
     return (trip,)
 
 
@@ -271,7 +270,6 @@ def _(datetime, trip):
     unix_time = trip.trip_update.stop_time_update[2].arrival.time
     ts = datetime.fromtimestamp(unix_time)
     print(f"unix time {unix_time} -> {ts}")
-
     return
 
 

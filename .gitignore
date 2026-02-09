@@ -21,3 +21,11 @@ wheels/
 
 # data
 data
+*.pb
+*.env
+
+# airflow dev
+logs
+plugins
+pgdata_airflow
+config
