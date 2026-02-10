@@ -98,8 +98,9 @@ def _(datetime):
 
 @app.cell
 def _(datetime):
-    datetime.now().strftime(format="%Y%m%d")
-    datetime.now().strftime(format="%H%M%S")
+    d = datetime.now().strftime(format="%Y%m%d")
+    t = datetime.now().strftime(format="%H%M%S")
+    print(d, t)
     return
 
 

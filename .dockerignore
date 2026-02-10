@@ -1,0 +1,5 @@
+# whitelist only app and pyproject.toml
+*
+!src
+!pyproject.toml
+!uv.lock
