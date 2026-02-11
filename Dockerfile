@@ -28,8 +28,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Then, use a final image without uv
 FROM debian:bookworm-slim
 # Setup a non-root user; use 1000 for aws cred permission
-ARG UID=1000 
-ARG GID=1000 
+ARG UID=1000
+ARG GID=1000
 RUN echo $UID $GID
 RUN groupadd --system --gid ${GID} nonroot \
  && useradd --system --gid ${GID} --uid ${UID} --create-home nonroot
