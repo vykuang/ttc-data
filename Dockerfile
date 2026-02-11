@@ -20,17 +20,17 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project
+    uv sync --locked --no-install-project --no-dev
 COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
+    uv sync --locked --no-dev
 
 # Then, use a final image without uv
 FROM debian:bookworm-slim
-ARG UID=999
-ARG GID=999
+# Setup a non-root user; use 1000 for aws cred permission
+ARG UID=1000 
+ARG GID=1000 
 RUN echo $UID $GID
-# Setup a non-root user
 RUN groupadd --system --gid ${GID} nonroot \
  && useradd --system --gid ${GID} --uid ${UID} --create-home nonroot
 

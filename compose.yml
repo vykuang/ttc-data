@@ -82,7 +82,7 @@ x-airflow-common:
     - /var/run/docker.sock:/var/run/docker.sock:ro
   user: "${AIRFLOW_UID:-50000}:0"
   group_add:
-    - "999"
+    - "999" # adds user to docker group on localhost to access docker socket
   depends_on:
     &airflow-common-depends-on
     redis:
