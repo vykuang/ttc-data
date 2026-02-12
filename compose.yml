@@ -82,7 +82,7 @@ x-airflow-common:
     - /var/run/docker.sock:/var/run/docker.sock:ro
   user: "${AIRFLOW_UID:-50000}:0"
   group_add:
-    - "999" # adds user to docker group on localhost to access docker socket
+    - ${DOCKER_GROUP} # adds user to docker group on localhost to access docker socket
   depends_on:
     &airflow-common-depends-on
     redis:
@@ -109,7 +109,7 @@ services:
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
-    image: redis:7.2-bookworm
+    image: redis:8
     expose:
       - 6379
     healthcheck:
