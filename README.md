@@ -10,11 +10,18 @@
 
 - source: open data
 - orchestration: airflow
+    - invokes `La
 - DWH: duckdb
-- transformation: polars
+- transformation: polars for protobuf/python-specific transformation
 - viz: streamlit
-- storage: parquet and S3
+- storage: delta lake on S3
     - backend for raw API content as well as cleaned layers
+    - hive-scheme partition
+- compute: aws lambda for serverless compute
+    - <15min, <10GB memory ceiling
+    - fargate takes a minue for cold start, 120GB ceiling far exceeds requirement
+        - could consider for larger aggregations/historical backfill/streaming
+        - will run to completion unlike lambda
 - IaC: Terraform
     - S3
     - lambda
@@ -135,3 +142,14 @@ From [GTFS TTC routes and schedules dataset](https://open.toronto.ca/dataset/mer
 - [`DockerOperator`](https://airflow.apache.org/docs/apache-airflow-providers-docker/stable/_api/airflow/providers/docker/operators/docker/index.html) only
 - the docker containers being orchestrated will contain all dependencies/credential needed
 - testing is more cumbersome
+- use `awslambda` invoker instead
+
+## testing
+
+### layer 1 - unit
+
+`moto` can mock S3, ECR, lambda. Use `responses` to mock API calls, and return fixtures created from an actual API call
+
+### layer 2 - AWS lambda runtime interface emulator (RIE)
+
+no localstack; AWS advocates isolated dev account. RIE can test container behaviour and lambda handler wiring

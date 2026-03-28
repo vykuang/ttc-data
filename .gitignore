@@ -23,7 +23,7 @@ wheels/
 data
 *.pb
 *.env
-
+!tests/fixtures/*.pb
 # airflow dev
 logs
 plugins

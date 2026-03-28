@@ -5,3 +5,5 @@ airu:
 	docker compose -f compose.yml up -d
 aird:
 	docker compose down
+test:
+	pytest

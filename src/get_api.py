@@ -1,12 +1,13 @@
 import argparse
 import logging
 from datetime import datetime
-
+import os
 import boto3
 import constants
 import requests
 from botocore.exceptions import ClientError
 
+AWS_BUCKET = os.getenv('AWS_BUCKET')
 
 def get_gtfs_raw(item: str, format: str):
     """
@@ -32,7 +33,7 @@ def get_gtfs_raw(item: str, format: str):
     key = f"raw/{item}/{d}/{t}.pb"
     try:
         s3.put_object(
-            Bucket=constants.AWS_BUCKET,
+            Bucket=AWS_BUCKET,
             Key=key,
             Body=resp.content,
             ContentType="application/x-protobuf",
