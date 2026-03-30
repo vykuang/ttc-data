@@ -1,15 +1,23 @@
 # tests/test_get_api.py
-import pytest
 import responses as resp_mock
 from moto import mock_aws
 import boto3
-import os
-
-TRIP_FIXTURE = open("tests/fixtures/trip_update.pb", "rb").read()  # save a real .pb once
+from get_api import build_url, get_gtfs_raw
+import pytest
 
 @mock_aws
 @resp_mock.activate
-def test_get_gtfs_raw_trip(monkeypatch):
+@pytest.mark.parametrize("item,fixture_name", [
+    ('trip', 'get_trip_fixture'),
+    ('vehicle', 'get_vehicle_fixture'),
+])
+def test_get_gtfs_raw(monkeypatch, item, fixture_name, request):
+    """
+    monkeypatch provided by pytest automatically when pytest runs this
+    parametrize means pytest will run this for each pair of item,fixture_name
+    requests is another built-in fixture that has a .getfixturevalue method
+    to dynamically retrieve fixture at runtime by name
+    """
     # point code at test bucket
     monkeypatch.setenv("AWS_BUCKET", "ttc-api-test")
 
@@ -18,20 +26,19 @@ def test_get_gtfs_raw_trip(monkeypatch):
 
     # mock the TTC API response
     resp_mock.add(
-        resp_mock.GET,
-        "https://gtfsrt.ttc.ca/trips/update",
-        body=TRIP_FIXTURE,
+        method=resp_mock.GET,
+        url=build_url(item),
+        body=request.getfixturevalue(fixture_name),
         content_type="application/x-protobuf",
         status=200,
     )
-
-    from get_api import get_gtfs_raw
-    result = get_gtfs_raw(item="trip", format="binary")
-
+    # imported here so that monkeypatch can setenv first before AWS_BUCKET is read
+    # at module level in get_api
+    result = get_gtfs_raw(item=item, format="binary")
     assert result is True
 
     # verify the object landed in S3
     s3 = boto3.client("s3", region_name="us-east-1")
-    objects = s3.list_objects_v2(Bucket="ttc-api-test", Prefix="raw/trip/")
+    objects = s3.list_objects_v2(Bucket="ttc-api-test", Prefix=f"raw/{item}/")
     assert objects["KeyCount"] == 1
     assert objects["Contents"][0]["Key"].endswith(".pb")

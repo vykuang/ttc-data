@@ -6,16 +6,17 @@ import boto3
 import constants
 import requests
 from botocore.exceptions import ClientError
+from typing import Literal
 
-AWS_BUCKET = os.getenv('AWS_BUCKET')
+def build_url(item: Literal['trip', 'vehicle']) -> str:
+    url_path = constants.URL_PATHS[item]
+    return constants.URL_BASE + url_path
 
-def get_gtfs_raw(item: str, format: str):
+def get_gtfs_raw(item: Literal['trip', 'vehicle'], format: str):
     """
     Retrieve raw bytes for S3 storage; keep unparsed for ground truth
     """
-    url_path = constants.URL_PATHS[item]
-    # query_str = "?" + "&".join(f"{key}={val}" for key, val in param.items())
-    url = constants.URL_BASE + url_path
+    url = build_url(item)
     params = {"format": format}
     try:
         resp = requests.get(
@@ -26,6 +27,7 @@ def get_gtfs_raw(item: str, format: str):
         resp.raise_for_status()
     except requests.exceptions.RequestException as e:
         logging.error(e)
+    AWS_BUCKET = os.getenv('AWS_BUCKET')
 
     s3 = boto3.client("s3")
     d = datetime.now().strftime(format="%Y%m%d")
