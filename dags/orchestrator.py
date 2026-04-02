@@ -31,6 +31,7 @@ def dag_get_api():
     get_trip = DockerOperator(
         task_id="get-trip",
         image=f"ttc-data:{os.getenv('ENV')}",
+        environment={'AWS_BUCKET': os.getenv('AWS_BUCKET')},
         # required for initiated container to access host creds
         mounts=docker_mounts(),
         auto_remove="success",
@@ -43,14 +44,15 @@ def dag_get_api():
     get_vehicle = DockerOperator(
         task_id="get-vehicle",
         image=f"ttc-data:{os.getenv('ENV')}",
+        environment={'AWS_BUCKET': os.getenv('AWS_BUCKET')},
         mounts=docker_mounts(),
         command=["--item", "vehicle"],
         auto_remove="success",
         docker_url="unix://var/run/docker.sock",
         mount_tmp_dir=False,
     )
-
-    get_trip >> get_vehicle
+    # run in parallel
+    [get_trip, get_vehicle]
 
 
 dag_get_api()

@@ -27,6 +27,45 @@
     - lambda
     - ECR
 
+### System design
+
+#### Remote
+
+```text
+┌─────────────────────────────────┐
+│         Control Node            │
+│  (1x EC2, t3.small or medium)   │
+│                                 │
+│  airflow-apiserver              │
+│  airflow-scheduler              │
+│  airflow-dag-processor          │
+│  airflow-triggerer              │
+└──────────┬──────────────────────┘
+           │ reads/writes
+           ▼
+┌──────────────────┐   ┌──────────────────┐
+│   RDS Postgres   │   │ ElastiCache Redis │
+│  (metadata DB,   │   │ (Celery broker +  │
+│   XCom, state)   │   │  result backend)  │
+└──────────────────┘   └────────┬─────────┘
+                                │ queues tasks
+                         ┌──────▼───────┐
+                         │  Worker Node │
+                         │  (EC2, n×)   │
+                         │              │
+                         │ airflow-     │
+                         │  worker      │
+                         │ docker daemon│
+                         └──────────────┘
+
+Scheduler → writes TaskInstance → Redis queue
+Worker    → polls Redis         → dequeues TaskInstance
+Worker    → calls operator.execute()
+Worker    → writes task state   → Postgres directly
+
+DAGs are baked into image so that each worker don't need additional file access
+```
+
 ## API primer
 
 [real time TTC data in textproto](https://gtfsrt.ttc.ca/)
@@ -139,10 +178,11 @@ From [GTFS TTC routes and schedules dataset](https://open.toronto.ca/dataset/mer
 
 ## Airflow
 
-- [`DockerOperator`](https://airflow.apache.org/docs/apache-airflow-providers-docker/stable/_api/airflow/providers/docker/operators/docker/index.html) only
+- [`DockerOperator`](https://airflow.apache.org/docs/apache-airflow-providers-docker/stable/_api/airflow/providers/docker/operators/docker/index.html) for local dev testing
 - the docker containers being orchestrated will contain all dependencies/credential needed
 - testing is more cumbersome
-- use `awslambda` invoker instead
+- use [`LambdaInvokeFunctionOperator`](https://airflow.apache.org/docs/apache-airflow-providers-amazon/stable/_api/airflow/providers/amazon/aws/operators/lambda_function/index.html#airflow.providers.amazon.aws.operators.lambda_function.LambdaInvokeFunctionOperator) in prod for scale-to-zero compute
+    - workers will have appropriate IAM profile so no creds needed
 
 ## testing
 

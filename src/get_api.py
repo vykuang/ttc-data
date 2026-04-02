@@ -7,6 +7,14 @@ import constants
 import requests
 from botocore.exceptions import ClientError
 from typing import Literal
+import sys
+
+# logging to stdout for airflow to capture from container
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
 
 def build_url(item: Literal['trip', 'vehicle']) -> str:
     url_path = constants.URL_PATHS[item]

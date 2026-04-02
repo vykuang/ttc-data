@@ -35,10 +35,6 @@ ARG GID=1000
 RUN groupadd --system --gid ${GID} nonroot \
  && useradd --system --gid ${GID} --uid ${UID} --create-home nonroot
 
-ARG AWS_BUCKET
-ENV AWS_BUCKET=$AWS_BUCKET
-ARG ENV 
-ENV ENV=$ENV
 # Copy the Python version
 COPY --from=builder --chown=python:python /python /python
 
