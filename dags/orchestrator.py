@@ -52,7 +52,7 @@ def dag_get_api():
         mount_tmp_dir=False,
     )
     # run in parallel
-    [get_trip, get_vehicle]
+    [get_trip, get_vehicle] # type: ignore
 
 
 dag_get_api()
