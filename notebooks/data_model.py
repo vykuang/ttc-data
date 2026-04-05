@@ -89,9 +89,17 @@ def _():
     import polars as pl
     from pathlib import Path
     from concurrent.futures import ThreadPoolExecutor, as_completed
+    from datetime import datetime
 
 
-    return Path, ThreadPoolExecutor, as_completed, boto3, gtfs_realtime_pb2
+    return (
+        Path,
+        ThreadPoolExecutor,
+        as_completed,
+        boto3,
+        datetime,
+        gtfs_realtime_pb2,
+    )
 
 
 @app.cell
@@ -311,11 +319,41 @@ def _(foo):
     return
 
 
+@app.cell
+def _(datetime):
+    def format_unix_time(unix_time: int):
+        ds = datetime.fromtimestamp(unix_time)
+        return ds.strftime(format="%H%M%S")
+
+    return (format_unix_time,)
+
+
+@app.cell
+def _(foo, format_unix_time):
+    sample_arrival_times = [format_unix_time(stop_seq.arrival.time) for stop_seq in foo[0].trip_update.stop_time_update]
+    print(f'arrival times for trip update from 090001:\n{sample_arrival_times}')
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ### Reading binary pb into polars
+
+    Trips
+    1. get trip_update entity
+    1. get common
+        - `trip.trip_id`
+        - `trip.route_id`
+        - `vehicle.id`
+    1. for each
     """)
+    return
+
+
+@app.cell
+def _():
+    # iterate over blob
     return
 
 
@@ -340,7 +378,7 @@ def _(trip):
 
 @app.cell
 def _(trip):
-    trip.trip_update.stop_time_update[0]
+    trip.trip_update.stop_time_update
     return
 
 
