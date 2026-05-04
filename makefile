@@ -5,7 +5,6 @@ ENV ?= dev
 
 build:
 	docker buildx build \
-	--build-arg AWS_BUCKET="$(AWS_BUCKET)" \
 	-t $(IMAGE_NAME):${ENV} .
 airflow-celery:
 	docker compose -f compose.yml up -d

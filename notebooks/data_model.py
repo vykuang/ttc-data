@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.22.4"
+__generated_with = "0.23.3"
 app = marimo.App()
 
 
@@ -20,20 +20,21 @@ def _(mo):
     - trip_update
 
     each trip_update:
-    - trip
-        - trip_id: str
-        - schedule_relationship: ['SCHEDULED', 'ADDED']
-        - route_id: str
-    - stop_time_update: list
-        - stop_sequence: int, [1, 2, ..., n]
-        - departure
-            - time: int, unix time in seconds
-        - stop_id: str
-        - schedule_relationship: ['SCHEDULED', ...]
-    - vehicle
-        - id: str
-    - timestamp: int, unix time in seconds
-
+    ```
+    trip
+        trip_id: str
+        schedule_relationship: ['SCHEDULED', 'ADDED']
+        route_id: str
+    stop_time_update: list
+        stop_sequence: int, [1, 2, ..., n]
+        departure
+            time: int, unix time in seconds
+        stop_id: str
+        schedule_relationship: ['SCHEDULED', ...]
+    vehicle
+        id: str
+    timestamp: int, unix time in seconds
+    ```
     ### `/vehicles/position`
 
     each entity:
@@ -41,23 +42,24 @@ def _(mo):
     - vehicle
 
     each vehicle:
-    - trip
-        - trip_id: int
-        - schedule_relationship: ['SCHEDULED']
-        - route_id: str
-    - position
-        - latitude: int, 6 decimals
-        - longitude: int
-        - bearing: int, 0-360?
-        - speed: str, km/h
-    - current_stop_sequence: int
-    - current_status: ['INCOMING_AT]
-    - timestamp: int
-    - stop_id: str
-    - vehicle
-        - id: str
-    - occupancy_status: ['FEW_SEATS_AVAILABLE']
-
+    ```
+    trip
+        trip_id: int
+        schedule_relationship: ['SCHEDULED']
+        route_id: str
+    position
+        latitude: int, 6 decimals
+        longitude: int
+        bearing: int, 0-360?
+        speed: str, km/h
+    current_stop_sequence: int
+    current_status: ['INCOMING_AT]
+    timestamp: int
+    stop_id: str
+    vehicle
+        id: str
+    occupancy_status: ['FEW_SEATS_AVAILABLE']
+    ```
     ### questions
 
     - possible values for
@@ -99,6 +101,7 @@ def _():
         boto3,
         datetime,
         gtfs_realtime_pb2,
+        pl,
     )
 
 
@@ -277,7 +280,6 @@ def _(gtfs_realtime_pb2):
 @app.cell
 def _(gtfs_realtime_pb2):
     gtfs_realtime_pb2.TripDescriptor.ScheduleRelationship.Value('SCHEDULED')
-
     return
 
 
@@ -321,16 +323,32 @@ def _(foo):
 
 @app.cell
 def _(datetime):
-    def format_unix_time(unix_time: int):
-        ds = datetime.fromtimestamp(unix_time)
-        return ds.strftime(format="%H%M%S")
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+    def convert_unix_to_datetime_est(unix_time: int) -> str:
+        ds = (
+            datetime
+            .fromtimestamp(unix_time, tz=timezone.utc)
+            .astimezone(ZoneInfo("America/Toronto"))
+        )
+        return ds.strftime(format="%H:%M:%S")
 
-    return (format_unix_time,)
+    return ZoneInfo, convert_unix_to_datetime_est, timezone
 
 
 @app.cell
-def _(foo, format_unix_time):
-    sample_arrival_times = [format_unix_time(stop_seq.arrival.time) for stop_seq in foo[0].trip_update.stop_time_update]
+def _(ZoneInfo, convert_unix_to_datetime_est, datetime, timezone):
+    ttss = datetime.fromtimestamp(1123456, tz=timezone.utc)
+    print(f'utc: {ttss.strftime(format="%H:%M:%S")}')
+    print(f'LA: {ttss.astimezone(tz=ZoneInfo('America/Los_Angeles')).strftime(format="%H:%M:%S")}')
+    print(f'TO: {ttss.astimezone(tz=ZoneInfo('America/Toronto')).strftime(format="%H:%M:%S")}')
+    print(f'convert: {convert_unix_to_datetime_est(1123456)}')
+    return
+
+
+@app.cell
+def _(convert_unix_to_datetime_est, foo):
+    sample_arrival_times = [convert_unix_to_datetime_est(stop_seq.arrival.time) for stop_seq in foo[0].trip_update.stop_time_update]
     print(f'arrival times for trip update from 090001:\n{sample_arrival_times}')
     return
 
@@ -358,33 +376,201 @@ def _():
 
 
 @app.cell
-def _(feed):
-    feed.entity[0]
-    return
+def _():
+    trip_id_key = '46515070' # 501 streetcar
+
+    return (trip_id_key,)
 
 
 @app.cell
-def _(feed):
-    trip = feed.entity[0]
+def _(feed, trip_id_key):
+    trip = [trip for trip in feed.entity if trip.trip_update.trip.trip_id == trip_id_key][0]
     trip.vehicle
     return (trip,)
 
 
 @app.cell
-def _(trip):
-    len(trip.trip_update.stop_time_update)
+def _(feed):
+    real_trips = set(trip.trip_update.trip.trip_id for trip in feed.entity)
+    len(real_trips)
+    return (real_trips,)
+
+
+@app.cell
+def _(dim_stop_times, real_trips):
+    all_trips = dim_stop_times.select('trip_id').unique().to_series()
+    print(f'{len(all_trips)} listed trips')
+    trips_with_data = all_trips.filter(all_trips.is_in(real_trips))
+    print(f'{len(trips_with_data)} from feed have stop data')
     return
 
 
 @app.cell
 def _(trip):
-    trip.trip_update.stop_time_update
+    trip.trip_update.stop_time_update[:3]
+    #trip.trip_update.stop_time_update[-3:]
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    - Only first "stop" has `departure.time` - starting point
+    - All subsequent stops have `arrival.time`
+    """)
     return
 
 
 @app.cell
-def _(trip):
-    trip.trip_update.stop_time_update[0].departure.time
+def _(pl):
+    def parse_trip(trip_update) -> pl.DataFrame:
+        """
+        parse list of stop time updates into a flat schema:
+        trip_id
+        route_id
+        vehicle_id
+        update_timestamp
+        stop_seq
+        start_stop_id
+        end_stop_id
+        arrival_time
+        departure_time
+        1. start records with stop_seq 1 -> 2. fill all except arrival and end stop
+        2. iterate through stu[1:]
+        3. for each, get stop_id. assign to prev rec's end_stop_id
+        4. get arrival time. assign to prev reco's arrival
+        5. if last, return records
+        6. if not, create new record with start = current
+        """
+        stops = []
+        start = trip_update.stop_time_update[0]
+        stop = dict(
+            trip_id=trip_update.trip.trip_id,
+            route_id=trip_update.trip.route_id,
+            vehicle_id=trip_update.vehicle.id,
+            update_timestamp=trip_update.timestamp,
+            stop_sequence=start.stop_sequence,
+            start_stop_id=start.stop_id,
+            departure_time=start.departure.time,
+        )
+        stops.append(stop)
+        leng = len(trip_update.stop_time_update)
+        print(f'{leng} stops')
+        for i, stu in enumerate(trip_update.stop_time_update[1:]):
+            stops[-1]["end_stop_id"] = stu.stop_id
+            stops[-1]["arrival_time"] = stu.arrival.time
+            if i == leng - 2:
+                print(f'at stop {i}, break')
+                break
+            stops.append(dict(
+                trip_id=trip_update.trip.trip_id,
+                route_id=trip_update.trip.route_id,
+                vehicle_id=trip_update.vehicle.id,
+                update_timestamp=trip_update.timestamp,
+                stop_sequence=stu.stop_sequence,
+                start_stop_id=stu.stop_id,
+                departure_time=None,
+            ))
+        return pl.DataFrame(stops)
+
+    return (parse_trip,)
+
+
+@app.cell
+def _(parse_trip, trip):
+    df = parse_trip(trip.trip_update)
+    df
+    return (df,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Join on routes and stops for context
+    """)
+    return
+
+
+@app.cell
+def _(Path, pl):
+    dims_dir = Path('../data/dims')
+    dim_routes = pl.read_parquet(dims_dir/'routes.parquet')
+    dim_stops = pl.read_parquet(dims_dir/'stops.parquet')
+    return dim_routes, dim_stops
+
+
+@app.function
+def enrich_with_stops(facts, stops, routes):
+    stop_cols = ['stop_id', 'stop_name']
+    stops_sel = stops.select(stop_cols)
+    routes_cols = ['route_id', 'route_long_name']
+    routes_sel = routes.select(routes_cols)
+    return facts.join(
+        stops_sel,
+        left_on='end_stop_id',
+        right_on='stop_id',
+        how='left',
+    ).join(
+        routes_sel,
+        on='route_id',
+        how='left'
+    )
+
+
+@app.cell
+def _(df, dim_routes, dim_stops):
+    named = enrich_with_stops(df, dim_stops, dim_routes)
+    named
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Join with `stop_times` dimension table for scheduled arrival on:
+    - trip_id
+    - stop_sequence
+    """)
+    return
+
+
+@app.cell
+def _(pl):
+    dim_stop_times = pl.read_parquet('../data/dims/stop_times.parquet')
+    dim_stop_times.sample(5)
+    return (dim_stop_times,)
+
+
+@app.cell
+def _(dim_stop_times, pl):
+    fah = dim_stop_times.filter(
+        pl.col('trip_id') == '46515070',
+        #pl.col('route_id') == '336',
+    )
+    fah
+    return
+
+
+@app.cell
+def _(pl):
+    def enrich_with_schedule(facts, stop_times) -> pl.DataFrame:
+        cols = ['trip_id', 'arrival_time', 'departure_time', 'stop_sequence', 'stop_headsign']
+        stop_times_sel = stop_times.select(cols)
+        return facts.join(
+            stop_times_sel,
+            on=['trip_id', 'stop_sequence'],
+            how='left',
+            suffix='_sched'
+        )
+
+
+    return (enrich_with_schedule,)
+
+
+@app.cell
+def _(df, dim_stop_times, enrich_with_schedule):
+    sched = enrich_with_schedule(df, dim_stop_times)
+    sched
     return
 
 

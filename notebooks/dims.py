@@ -84,6 +84,16 @@ def _(pl, stops_sample):
 
 
 @app.cell
+def _(dims_dir, pl):
+    # idiomatic way to stream csv to parquet
+    (
+        pl.scan_csv(dims_dir / 'routes.txt')
+        .sink_parquet(dims_dir / 'routes.parquet')
+    )
+    return
+
+
+@app.cell
 def _():
     return
 
