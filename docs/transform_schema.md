@@ -52,6 +52,12 @@ vehicle.timestamp
 
 ### Step 1: Parse protobuf files
 
+- single stop per row matches the GTFS `stop_times` and `stop_time_update` 
+- having start *and* stop per row changes the grain to **leg**
+    - still useful but different
+    - more difficult to join on dimensions
+    - derive `trip_leg_fact` from the one stop per row canonical `stop_arrival_fact`
+    
 ```python
 from google.transit import gtfs_realtime_pb2
 import polars as pl
