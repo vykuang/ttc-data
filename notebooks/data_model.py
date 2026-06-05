@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.3"
+__generated_with = "0.23.5"
 app = marimo.App()
 
 
@@ -87,22 +87,14 @@ def _(mo):
 @app.cell
 def _():
     import boto3
-    from google.transit import gtfs_realtime_pb2
+    from google.transit import gtfs_realtime_pb2 as gtfs
     import polars as pl
     from pathlib import Path
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from datetime import datetime
+    from datetime import datetime, date
 
 
-    return (
-        Path,
-        ThreadPoolExecutor,
-        as_completed,
-        boto3,
-        datetime,
-        gtfs_realtime_pb2,
-        pl,
-    )
+    return Path, ThreadPoolExecutor, as_completed, boto3, datetime, gtfs, pl
 
 
 @app.cell
@@ -110,6 +102,12 @@ def _():
     AWS_BUCKET = 'ttc-api'
     path = 'raw/{item}/{date}/{time}.pb'
     return (AWS_BUCKET,)
+
+
+@app.cell
+def _():
+    CURR_DATE = '20260511'
+    return (CURR_DATE,)
 
 
 @app.cell
@@ -138,7 +136,7 @@ def _(objs):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Create set for each of following by iterating through all API results for 2026-3-1:
+    Create set for each of following by iterating through all API results for 2026-5-11:
     - `trip_update.trip.schedule_relationship`
     - `trip_update.stop_time_update[i].schedule_relationship`
     - `vehicle.trip.schedule_relationship`
@@ -212,33 +210,17 @@ def _(stop_time_update_sched, trip_sched, v_occupancy, v_status, v_trip_sched):
 
 
 @app.cell
-def _(gtfs_realtime_pb2):
-    feed = gtfs_realtime_pb2.FeedMessage()
+def _(gtfs):
+    feed = gtfs.FeedMessage()
     return (feed,)
 
 
 @app.cell
-def _():
-    # init sets
-    trip_sched = set()
-    stop_time_update_sched = set()
-    v_trip_sched = set()
-    v_status = set()
-    v_occupancy = set()
-    return (
-        stop_time_update_sched,
-        trip_sched,
-        v_occupancy,
-        v_status,
-        v_trip_sched,
-    )
+def _(CURR_DATE, Path, download_s3_many, feed, update_enum_sets):
 
-
-@app.cell
-def _(Path, download_s3_many, feed, update_enum_sets):
-    prefix_template = 'raw/{item}/20260301'
+    prefix_template = 'raw/{item}/{date}'
     for item in ['trip', 'vehicle']:
-        prefix = prefix_template.format(item=item)
+        prefix = prefix_template.format(item=item, date=CURR_DATE)
         download_s3_many(prefix)
         pb_dir = Path('../data') / prefix
         print(f'processing {pb_dir}')
@@ -250,6 +232,7 @@ def _(Path, download_s3_many, feed, update_enum_sets):
                 update_enum_sets(feed, item)
                 msg = f'processed {i}/{total} files'
                 print(msg.ljust(60), end='\r', flush=True)
+        print(f'{item} processed')
     return
 
 
@@ -272,14 +255,14 @@ def _(mo):
 
 
 @app.cell
-def _(gtfs_realtime_pb2):
-    gtfs_realtime_pb2.TripDescriptor.ScheduleRelationship.Name(0)
+def _(gtfs):
+    gtfs.TripDescriptor.ScheduleRelationship.Name(0)
     return
 
 
 @app.cell
-def _(gtfs_realtime_pb2):
-    gtfs_realtime_pb2.TripDescriptor.ScheduleRelationship.Value('SCHEDULED')
+def _(gtfs):
+    gtfs.TripDescriptor.ScheduleRelationship.Value('SCHEDULED')
     return
 
 
@@ -307,18 +290,12 @@ def _(mo):
 
 
 @app.cell
-def _(feed):
-    with open('../data/raw/trip/20260301/090001.pb', 'rb') as ff:
+def _(CURR_DATE, feed):
+    CURR_TIME = '090000'
+    with open(f'../data/raw/trip/{CURR_DATE}/{CURR_TIME}.pb', 'rb') as ff:
         feed.ParseFromString(ff.read())
         foo = feed.entity
-    return (foo,)
-
-
-@app.cell
-def _(foo):
-    tsr = {stu.schedule_relationship for stu in foo[25].trip_update.stop_time_update}
-    tsr
-    return
+    return CURR_TIME, foo
 
 
 @app.cell
@@ -347,9 +324,9 @@ def _(ZoneInfo, convert_unix_to_datetime_est, datetime, timezone):
 
 
 @app.cell
-def _(convert_unix_to_datetime_est, foo):
+def _(CURR_TIME, convert_unix_to_datetime_est, foo):
     sample_arrival_times = [convert_unix_to_datetime_est(stop_seq.arrival.time) for stop_seq in foo[0].trip_update.stop_time_update]
-    print(f'arrival times for trip update from 090001:\n{sample_arrival_times}')
+    print(f'arrival times for trip update from {CURR_TIME}:\n{sample_arrival_times}')
     return
 
 
@@ -364,51 +341,59 @@ def _(mo):
         - `trip.trip_id`
         - `trip.route_id`
         - `vehicle.id`
-    1. for each
+    1. denormalize for each stop update
     """)
     return
 
 
 @app.cell
-def _():
-    # iterate over blob
+def _(foo):
+    sample_trip_update = foo[100].trip_update
+    sample_trip_id = sample_trip_update.trip.trip_id
+    sample_route_id = sample_trip_update.trip.route_id
+    print(f'sample trip_id: {sample_trip_id}, route_id {sample_route_id}')
+    return sample_route_id, sample_trip_id
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Join on routes and stops for context
+    """)
     return
 
 
 @app.cell
-def _():
-    trip_id_key = '46515070' # 501 streetcar
-
-    return (trip_id_key,)
-
-
-@app.cell
-def _(feed, trip_id_key):
-    trip = [trip for trip in feed.entity if trip.trip_update.trip.trip_id == trip_id_key][0]
-    trip.vehicle
-    return (trip,)
+def _(Path, pl):
+    CALENDAR_START = '20260510'
+    dims_dir = Path(f'../data/dims/{CALENDAR_START}')
+    dim_routes = pl.read_parquet(dims_dir/'routes.parquet')
+    dim_stops = pl.read_parquet(dims_dir/'stops.parquet')
+    return dim_routes, dim_stops, dims_dir
 
 
 @app.cell
-def _(feed):
-    real_trips = set(trip.trip_update.trip.trip_id for trip in feed.entity)
-    len(real_trips)
-    return (real_trips,)
-
-
-@app.cell
-def _(dim_stop_times, real_trips):
-    all_trips = dim_stop_times.select('trip_id').unique().to_series()
-    print(f'{len(all_trips)} listed trips')
-    trips_with_data = all_trips.filter(all_trips.is_in(real_trips))
-    print(f'{len(trips_with_data)} from feed have stop data')
+def _(dim_routes):
+    dim_routes.sample(5)
     return
 
 
 @app.cell
-def _(trip):
-    trip.trip_update.stop_time_update[:3]
-    #trip.trip_update.stop_time_update[-3:]
+def _(dim_routes, pl, sample_route_id):
+    dim_routes.filter(pl.col('route_id') == sample_route_id)
+    return
+
+
+@app.cell
+def _(dims_dir, pl):
+    dim_stop_times = pl.read_parquet(dims_dir / 'stop_times.parquet')
+    dim_stop_times.sample(5)
+    return (dim_stop_times,)
+
+
+@app.cell
+def _(dim_stop_times, pl, sample_trip_id):
+    dim_stop_times.filter(pl.col("trip_id") == sample_trip_id)
     return
 
 
@@ -423,9 +408,10 @@ def _(mo):
 
 @app.cell
 def _(pl):
-    def parse_trip(trip_update) -> pl.DataFrame:
+    def parse_trip_leg(trip_update) -> pl.DataFrame:
         """
-        parse list of stop time updates into a flat schema:
+        parse list of stop time updates into a flat schema with leg-grain
+        instead of stop-grain:
         trip_id
         route_id
         vehicle_id
@@ -473,30 +459,39 @@ def _(pl):
             ))
         return pl.DataFrame(stops)
 
-    return (parse_trip,)
+    return (parse_trip_leg,)
 
 
 @app.cell
-def _(parse_trip, trip):
-    df = parse_trip(trip.trip_update)
-    df
-    return (df,)
+def _(gtfs, pl):
+    def parse_trip_feed(path: str) -> pl.DataFrame:
+        feed = gtfs.FeedMessage()
+        with open(path, 'rb') as pb:
+            feed.ParseFromFeed(pb.read())
+        stops = []
+        for entity in feed.entity:
+            tu = entity.trip_update
+            for stu in tu.stop_time_update:
+                stops.append({
+                    'trip_id': tu.trip.trip_id,
+                    'route_id': tu.trip.route_id,
+                    'vehicle_id': tu.vehicle.id,
+                    'stop_sequence': stu.stop_sequence,
+                    'stop_id': stu.stop_id,
+                    'actual_arrival_time': stu.arrival.time if stu.HasField('arrival') else None,
+                    'actual_departure_time': stu.departure.time if stu.HasField('departure') else None,
+                    'feed_timestamp': tu.timestamp,
+                })
+        return pl.DataFrame(stops)
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    Join on routes and stops for context
-    """)
     return
 
 
 @app.cell
-def _(Path, pl):
-    dims_dir = Path('../data/dims')
-    dim_routes = pl.read_parquet(dims_dir/'routes.parquet')
-    dim_stops = pl.read_parquet(dims_dir/'stops.parquet')
-    return dim_routes, dim_stops
+def _(parse_trip_leg, trip):
+    df = parse_trip_leg(trip.trip_update)
+    df
+    return (df,)
 
 
 @app.function
@@ -535,13 +530,6 @@ def _(mo):
 
 
 @app.cell
-def _(pl):
-    dim_stop_times = pl.read_parquet('../data/dims/stop_times.parquet')
-    dim_stop_times.sample(5)
-    return (dim_stop_times,)
-
-
-@app.cell
 def _(dim_stop_times, pl):
     fah = dim_stop_times.filter(
         pl.col('trip_id') == '46515070',
@@ -571,6 +559,24 @@ def _(pl):
 def _(df, dim_stop_times, enrich_with_schedule):
     sched = enrich_with_schedule(df, dim_stop_times)
     sched
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    ## Missing `trip_id`
+
+    Fetched `trips/update` API are now outside the period set in `calendar.txt`. Must refresh dims according to dates set in `calendar`
+    """)
+    return
+
+
+@app.cell
+def _(dims_dir, pl):
+    path_cal = dims_dir / "calendar.parquet"
+    df_cal = pl.read_parquet(path_cal)
+    df_cal.show()
     return
 
 

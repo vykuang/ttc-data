@@ -66,6 +66,26 @@ Worker    → writes task state   → Postgres directly
 DAGs are baked into image so that each worker don't need additional file access
 ```
 
+#### data ingestion path
+
+- call API, persist protobuf in S3
+- append to bronze dataset
+    - read protobuf from s3
+    - pivot to stop facts schema by exploding the stop_updates and denormalizing route_id, trip_id, vehicle_id, etc
+    - no transform, leave timestamp as unix time
+    - keyed by `[route_id, trip_id, stop_sequence, feed_timestamp]`
+- UPSERT to silver
+    - merge keys: `[route_id, trip_id, stop_sequence]`
+    - cast data types, eg unix epoch time -> datetime
+- ENRICH to gold
+    - stop_times for scheduled departure/arrival
+        - add date context from feed timestamp to scheduled times and coerce to datetime
+        - calculate delay
+        - handling >24h scheduled time:
+            - scheduled_seconds >= 86400 and event_hour < 6, prefer service_date = event_date - 1.
+
+- data IO at each layer (read from/write to S3) handled by delta lake engine. Use duck db to abstract
+
 ## API primer
 
 [real time TTC data in textproto](https://gtfsrt.ttc.ca/)

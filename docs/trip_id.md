@@ -43,3 +43,7 @@ Data sources:
 Also handle post-midnight times such as `25:30:00` (1:30 AM on the next calendar day).
 
 This is the standard GTFS + GTFS-RT approach for schedule-adherence calculations.
+
+## `calendar.txt`
+
+If trips are outside of the period set in `calendar.txt`, `trip_id` may not correspond to ones in `dim_stop_times`. The complete GTFS zip file must be refreshed at end of each `calendar` period to ensure that fetched `trip_id`s correspond to actual trips
