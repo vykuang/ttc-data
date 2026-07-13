@@ -2,7 +2,7 @@
 import responses as resp_mock
 from moto import mock_aws
 import boto3
-from get_api import build_url, get_gtfs_raw
+from domain.get_api import build_url, get_gtfs_raw
 import pytest
 
 @mock_aws

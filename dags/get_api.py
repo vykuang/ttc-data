@@ -10,7 +10,7 @@ import requests
 from airflow.sdk import dag, task
 from botocore.exceptions import ClientError
 
-import constants
+import infrastructure.gtfs_schema as gtfs_schema
 
 
 @dag()
@@ -22,12 +22,12 @@ def extract_load(item: str = "trip", params: dict = {"format": "binary"}):
         """
         Retrieve raw bytes for S3 storage; keep unparsed for ground truth
         """
-        url_path = constants.URL_PATHS[item]
+        url_path = gtfs_schema.URL_PATHS[item]
         # query_str = "?" + "&".join(f"{key}={val}" for key, val in param.items())
-        url = constants.URL_BASE + url_path
+        url = gtfs_schema.URL_BASE + url_path
         try:
             resp = requests.get(
-                url=url, params=params, headers=constants.HEADERS, timeout=3
+                url=url, params=params, headers=gtfs_schema.HEADERS, timeout=3
             )
             logging.info(f"querying {resp.url}")
 
@@ -41,7 +41,7 @@ def extract_load(item: str = "trip", params: dict = {"format": "binary"}):
         key = f"raw/{item}/{d}/{t}.pb"
         try:
             s3.put_object(
-                Bucket=constants.AWS_BUCKET,
+                Bucket=gtfs_schema.AWS_BUCKET,
                 Key=key,
                 Body=resp.content,
                 ContentType="application/x-protobuf",

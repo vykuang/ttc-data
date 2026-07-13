@@ -1,8 +1,11 @@
+"""
+GTFS schema for reading dimensions
+instead of hard-coding polars type format, create an ENUM abstraction
+then, depending on the format, eg polars or pandas, use the corresponding
+format mapper to get from ENUM (eg FieldType.STRING) to format specific type
+eg string: pl.Utf8 in _POLARS_MAP
+"""
 import polars as pl
-
-URL_BASE = "https://gtfsrt.ttc.ca"
-URL_PATHS = {"trip": "/trips/update", "vehicle": "/vehicles/position"}
-HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # generated from https://gtfs.org/documentation/schedule/reference/#field-types
 ROUTES_DTYPES = {

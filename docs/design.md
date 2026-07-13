@@ -37,7 +37,8 @@ How does *Clean Architecture* influence our TTC dashboard?
 
 ## Domain
 
-What are the core concepts, workflows, and rules? After listing these out, not as convinced it maps neatly to an ETL pipeline architecture
+What are the core concepts, workflows, and rules? After listing these out, not as convinced it maps neatly to an ETL pipeline architecture. Perhaps at the app layer, when it's retrieving the transformed and FE'd gold layer for further manipulation based on user requests?
+
 ### Entities
 
 - Trip: journey of a vehicle from one terminal to the other at a specific scheduled time, on a particular day; collection of legs
@@ -62,6 +63,12 @@ stateless operations not naturally belonging to any specific entity/value object
 
 - sort trips based on total delay
 
+## Application layer
+
+- thin layer that stitches together the pipeline
+- error handling and data validation
+- hides infra details from domain, and domain from interfaces
+- lays out the contract for what the interface adapters must agree to via abstract base classes (dependency injection)
 ## interface adapter usage in orchestrator
 
 ```py

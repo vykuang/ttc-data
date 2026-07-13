@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.5"
+__generated_with = "0.23.9"
 app = marimo.App()
 
 
@@ -190,33 +190,13 @@ def _(AWS_BUCKET, ThreadPoolExecutor, as_completed, download_s3_obj, s3):
 
 
 @app.cell
-def _(stop_time_update_sched, trip_sched, v_occupancy, v_status, v_trip_sched):
-    # iterate through all pb
-    def update_enum_sets(feed, item: str = 'trip'):
-        for entity in feed.entity:
-            if item == 'trip':
-                trip = entity.trip_update
-                trip_sched.add(trip.trip.schedule_relationship)
-                scheds = {trip.stop_time_update[i].schedule_relationship for i in range(len(entity.trip_update.stop_time_update))}
-                stop_time_update_sched.update(scheds)
-            elif item == 'vehicle':
-                veh = entity.vehicle
-                v_trip_sched.add(veh.trip.schedule_relationship)
-                v_status.add(veh.current_status)
-                v_occupancy.add(veh.occupancy_status)
-
-
-    return (update_enum_sets,)
-
-
-@app.cell
 def _(gtfs):
     feed = gtfs.FeedMessage()
     return (feed,)
 
 
 @app.cell
-def _(CURR_DATE, Path, download_s3_many, feed, update_enum_sets):
+def _(CURR_DATE, Path, download_s3_many, feed):
 
     prefix_template = 'raw/{item}/{date}'
     for item in ['trip', 'vehicle']:
@@ -229,20 +209,9 @@ def _(CURR_DATE, Path, download_s3_many, feed, update_enum_sets):
         for i, pb in enumerate(glob_pbs):
             with open(pb, 'rb') as f:
                 feed.ParseFromString(f.read())
-                update_enum_sets(feed, item)
                 msg = f'processed {i}/{total} files'
                 print(msg.ljust(60), end='\r', flush=True)
         print(f'{item} processed')
-    return
-
-
-@app.cell
-def _(stop_time_update_sched, trip_sched, v_occupancy, v_status, v_trip_sched):
-    print(f'trip_sched: {trip_sched}')
-    print(f'stop_time_update_sched: {stop_time_update_sched}')
-    print(f'v_trip_sched: {v_trip_sched}')
-    print(f'v_status: {v_status}')
-    print(f'v_occupancy: {v_occupancy}')
     return
 
 
@@ -291,7 +260,7 @@ def _(mo):
 
 @app.cell
 def _(CURR_DATE, feed):
-    CURR_TIME = '090000'
+    CURR_TIME = '100001'
     with open(f'../data/raw/trip/{CURR_DATE}/{CURR_TIME}.pb', 'rb') as ff:
         feed.ParseFromString(ff.read())
         foo = feed.entity
@@ -308,7 +277,8 @@ def _(datetime):
             .fromtimestamp(unix_time, tz=timezone.utc)
             .astimezone(ZoneInfo("America/Toronto"))
         )
-        return ds.strftime(format="%H:%M:%S")
+        # return ds.strftime(format="%H:%M:%S")
+        return ds.isoformat()
 
     return ZoneInfo, convert_unix_to_datetime_est, timezone
 
@@ -369,7 +339,7 @@ def _(Path, pl):
     dims_dir = Path(f'../data/dims/{CALENDAR_START}')
     dim_routes = pl.read_parquet(dims_dir/'routes.parquet')
     dim_stops = pl.read_parquet(dims_dir/'stops.parquet')
-    return dim_routes, dim_stops, dims_dir
+    return dim_routes, dims_dir
 
 
 @app.cell
@@ -459,15 +429,15 @@ def _(pl):
             ))
         return pl.DataFrame(stops)
 
-    return (parse_trip_leg,)
+    return
 
 
 @app.cell
-def _(gtfs, pl):
-    def parse_trip_feed(path: str) -> pl.DataFrame:
+def _(Path, convert_unix_to_datetime_est, gtfs, pl):
+    def parse_trip_feed(pb_path: Path) -> pl.DataFrame:
         feed = gtfs.FeedMessage()
-        with open(path, 'rb') as pb:
-            feed.ParseFromFeed(pb.read())
+        with open(pb_path, 'rb') as pb:
+            feed.ParseFromString(pb.read())
         stops = []
         for entity in feed.entity:
             tu = entity.trip_update
@@ -478,20 +448,13 @@ def _(gtfs, pl):
                     'vehicle_id': tu.vehicle.id,
                     'stop_sequence': stu.stop_sequence,
                     'stop_id': stu.stop_id,
-                    'actual_arrival_time': stu.arrival.time if stu.HasField('arrival') else None,
-                    'actual_departure_time': stu.departure.time if stu.HasField('departure') else None,
-                    'feed_timestamp': tu.timestamp,
+                    'actual_arrival_time': convert_unix_to_datetime_est(stu.arrival.time) if stu.HasField('arrival') else None,
+                    'actual_departure_time': convert_unix_to_datetime_est(stu.departure.time) if stu.HasField('departure') else None,
+                    'feed_timestamp': convert_unix_to_datetime_est(tu.timestamp),
                 })
         return pl.DataFrame(stops)
 
-    return
-
-
-@app.cell
-def _(parse_trip_leg, trip):
-    df = parse_trip_leg(trip.trip_update)
-    df
-    return (df,)
+    return (parse_trip_feed,)
 
 
 @app.function
@@ -512,13 +475,6 @@ def enrich_with_stops(facts, stops, routes):
     )
 
 
-@app.cell
-def _(df, dim_routes, dim_stops):
-    named = enrich_with_stops(df, dim_stops, dim_routes)
-    named
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -526,16 +482,6 @@ def _(mo):
     - trip_id
     - stop_sequence
     """)
-    return
-
-
-@app.cell
-def _(dim_stop_times, pl):
-    fah = dim_stop_times.filter(
-        pl.col('trip_id') == '46515070',
-        #pl.col('route_id') == '336',
-    )
-    fah
     return
 
 
@@ -556,13 +502,6 @@ def _(pl):
 
 
 @app.cell
-def _(df, dim_stop_times, enrich_with_schedule):
-    sched = enrich_with_schedule(df, dim_stop_times)
-    sched
-    return
-
-
-@app.cell
 def _(mo):
     mo.md(r"""
     ## Missing `trip_id`
@@ -577,6 +516,93 @@ def _(dims_dir, pl):
     path_cal = dims_dir / "calendar.parquet"
     df_cal = pl.read_parquet(path_cal)
     df_cal.show()
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    ## Orchestrate
+
+    - takes dir of protobuf
+    - denormalizes the stop updates
+    - enrich with stop_time to get scheduled times
+    - optionally enrich with route info and stop info
+    - append to facts table (persist as parquet)
+    """)
+    return
+
+
+@app.cell
+def _(Path, dim_stop_times, enrich_with_schedule, parse_trip_feed, pl):
+    def get_stop_arrival_schema(pb_path: Path) -> pl.DataFrame:
+        stops = parse_trip_feed(pb_path)
+        sched = enrich_with_schedule(stops, dim_stop_times)
+        return sched
+
+    return (get_stop_arrival_schema,)
+
+
+@app.cell
+def _(CURR_DATE, CURR_TIME, Path, get_stop_arrival_schema):
+    pb_path = f'../data/raw/trip/{CURR_DATE}/{CURR_TIME}.pb'
+    pb_path = Path(pb_path)
+    sched = get_stop_arrival_schema(pb_path)
+    sched.show()
+    return (sched,)
+
+
+@app.cell
+def _(pl, sched):
+    sched.filter(pl.col('route_id') == '189').sort(pl.col(['trip_id', 'stop_sequence']))
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## UPSERT approach
+
+    Merge on
+    - route_id
+    - trip_id
+    - vehicle_id
+    - stop_sequence
+
+    newer values overwrites old; 'actual' times before trip occurence is just copies of the schedule
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Data Layers
+
+    - raw (bronze)
+        - ingest from `txt`, `protobuf`
+        - keep types as is
+        - trips to `facts_stop_schema`
+        - vehicles to `facts_vehicle_pos` - where all vehicle pos are given latest API call
+    - cleaned (silver)
+        - dims to `parquet`
+            - cast types
+            - string HHMMSS
+        - `facts_stop_schema`
+            - cast unix time to datetime
+    - enriched (gold)
+        - join with stop_times
+        - coerce scheduled times to datetime with context from feed timestamp
+        - dwell = departure - arrival
+        - delay = actual_arrival - sched_arrival
+    """)
+    return
+
+
+@app.cell
+def _(dims_dir, pl):
+    dim_trips = pl.read_parquet(dims_dir / 'trips.parquet')
+    dim_trips.head(5)
     return
 
 

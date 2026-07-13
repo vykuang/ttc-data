@@ -1,10 +1,10 @@
-from abc import ABC, abstractmethod
+from typing import Protocol
 from pathlib import Path
 from typing import TypeVar, Generic, BinaryIO
 
 FrameT = TypeVar("FrameT")
 
-class StorageBackend(ABC):
+class StorageBackend(Protocol):
     """
     Responsible only for locating/moving bytes
     Does not know about data/file formats, only generic byte streams
@@ -22,27 +22,18 @@ class StorageBackend(ABC):
         )
     repo.read(src=path_to_parquet) -> pl.DataFrame
     """
-    @abstractmethod
-    def open_reader(self, src_path: str) -> BinaryIO:
-        pass
+    def open_reader(self, src_path: str) -> BinaryIO: ...
+    def open_writer(self, dest_path: str, overwrite: bool = False) -> BinaryIO: ...
 
-    @abstractmethod
-    def open_writer(self, dest_path: str, overwrite: bool = False) -> BinaryIO:
-        pass
-
-class TabularFormat(ABC, Generic[FrameT]):
+class TabularFormat(Protocol, Generic[FrameT]):
     """
     Decouples storage from knowing data/file formats
     Use of FrameT allows type checker to know the typing should be consistent
     which generic Object would not allow
     """
-    @abstractmethod
-    def read(self, source: BinaryIO) -> FrameT:
-        pass
+    def read(self, source: BinaryIO) -> FrameT: ...
 
-    @abstractmethod
-    def write(self, frame: FrameT, dest: BinaryIO) -> None:
-        pass
+    def write(self, frame: FrameT, dest: BinaryIO) -> None: ...
     
 class Repository(Generic[FrameT]):
     def __init__(self, storage: StorageBackend, format: TabularFormat[FrameT]):

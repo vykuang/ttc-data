@@ -7,8 +7,7 @@ from typing import BinaryIO
 from pathlib import Path
 
 from google.transit import gtfs_realtime_pb2 as gtfs
-import polars as pl
-from src.orchestrator import StorageBackend, TabularFormat
+
 import boto3
 
 class S3StorageBackend(StorageBackend):
@@ -61,10 +60,3 @@ class LocalStorageBackend(StorageBackend):
         full_path.parent.mkdir(parents=True, exist_ok=True)
         return full_path.open('wb')
 
-class ParquetPolarsFormat(TabularFormat[pl.DataFrame]):
-    def read(self, path) -> pl.DataFrame:
-        return pl.read_parquet(path)
-    
-    def write(self, df: pl.DataFrame, path) -> None:
-        df.write_parquet(path)
-        

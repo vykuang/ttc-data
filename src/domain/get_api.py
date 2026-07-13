@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 import os
 import boto3
-import constants
+import infrastructure.gtfs_schema as gtfs_schema
 import requests
 from botocore.exceptions import ClientError
 from typing import Literal
@@ -17,8 +17,8 @@ logging.basicConfig(
 )
 
 def build_url(item: Literal['trip', 'vehicle']) -> str:
-    url_path = constants.URL_PATHS[item]
-    return constants.URL_BASE + url_path
+    url_path = gtfs_schema.URL_PATHS[item]
+    return gtfs_schema.URL_BASE + url_path
 
 def get_gtfs_raw(item: Literal['trip', 'vehicle'], format: str):
     """
@@ -28,7 +28,7 @@ def get_gtfs_raw(item: Literal['trip', 'vehicle'], format: str):
     params = {"format": format}
     try:
         resp = requests.get(
-            url=url, params=params, headers=constants.HEADERS, timeout=3
+            url=url, params=params, headers=gtfs_schema.HEADERS, timeout=3
         )
         logging.info(f"querying {resp.url}")
 

@@ -1,7 +1,7 @@
 import polars as pl
 from pathlib import Path
 import argparse
-from constants import DIM_SCHEMA_MAP
+from infrastructure.gtfs_schema import DIM_SCHEMA_MAP
 
 def convert_parquet(dim_type: str, dims_dir: Path):
     schema = DIM_SCHEMA_MAP.get(dim_type)
